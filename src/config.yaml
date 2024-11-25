@@ -1,4 +1,4 @@
-CFG:
+CFG_TRANSFORMER:
   HIDDEN_DIM_TRANSFORMER: 128  # Transformer 모델의 숨겨진 차원
   NUM_HEADS: 8                # Multi-head Attention에서의 헤드 수
   NUM_LAYERS: 4               # Transformer Encoder 및 Decoder의 레이어 수
@@ -11,3 +11,13 @@ CFG:
   WEIGHT_DECAY: 1e-5          # 가중치 감쇠 (L2 Regularization)
   SCHEDULER_STEP: 10          # 학습률 감소 스텝 크기
   SCHEDULER_GAMMA: 0.9        # 학습률 감소 계수
+
+CFG_LSTM:
+  WINDOW_GIVEN: 10080   # 1 week 
+  BATCH_SIZE: 64
+  HIDDEN_DIM_LSTM: 1024
+  NUM_LAYERS: 1
+  EPOCHS: 3
+  LEARNING_RATE: 1e-3
+  DEVICE: "cuda"
+  DROPOUT: 0.2

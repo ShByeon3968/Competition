@@ -2,10 +2,10 @@ from dataset import TimeSeriesDataset
 import pandas as pd
 import torch
 from utils import UtilFunction
-import tqdm
+from tqdm import tqdm
 import torch.nn as nn
 import torch.optim as optim
-from models import TransformerAE
+from models import TransformerAE, LSTM_AE
 
 
 def train_AE(model, train_loader, optimizer, criterion, n_epochs, device):
@@ -46,11 +46,11 @@ def train_AE(model, train_loader, optimizer, criterion, n_epochs, device):
 
     return train_losses, best_model
 
-config = UtilFunction.load_config('./src/config.yaml')
-CFG = config['CFG']
+config = UtilFunction.load_config('./config.yaml')
+CFG = config['CFG_LSTM']
 
-df_A = pd.read_csv("./open/train/TRAIN_A.csv")
-df_B = pd.read_csv("./open/train/TRAIN_B.csv")
+df_A = pd.read_csv("./TRAIN_A.csv")
+df_B = pd.read_csv("./TRAIN_B.csv")
 
 train_dataset_A = TimeSeriesDataset(df_A, stride=60)
 train_dataset_B = TimeSeriesDataset(df_B, stride=60)
@@ -60,10 +60,11 @@ train_loader = torch.utils.data.DataLoader(train_dataset_A_B,
                                             batch_size=CFG['BATCH_SIZE'], 
                                             shuffle=True)
 
-model = TransformerAE(CFG['HIDDEN_DIM_TRANSFORMER'],CFG['NUM_HEADS'],CFG['DROPOUT'],CFG['NUM_LAYERS']).cuda()
+# model = TransformerAE(CFG['HIDDEN_DIM_TRANSFORMER'],CFG['NUM_HEADS'],CFG['DROPOUT'],CFG['NUM_LAYERS']).cuda()
+model = LSTM_AE(CFG['HIDDEN_DIM_LSTM'],CFG['NUM_LAYERS'],CFG['DROPOUT']).cuda()
 
 # Optimizer 및 Loss Function 설정
-optimizer = optim.Adam(model.parameters(), lr=CFG['  LEARNING_RATE'])
+optimizer = optim.Adam(model.parameters(), lr=0.01)
 criterion = nn.MSELoss()
 
 if __name__ == '__main__':

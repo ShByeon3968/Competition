@@ -1,6 +1,44 @@
 import torch
 import torch.nn as nn
 
+class LSTM_AE(nn.Module):
+    def __init__(self,HIDDEN_DIM_LSTM,NUM_LAYERS,DROPOUT):
+        super(LSTM_AE, self).__init__()
+
+        # LSTM feature extractor
+        self.lstm_feature = nn.LSTM(
+            input_size=1, 
+            hidden_size=HIDDEN_DIM_LSTM,
+            num_layers=NUM_LAYERS,
+            batch_first=True,
+            dropout=DROPOUT if NUM_LAYERS > 1 else 0
+        )
+
+        # Encoder modules
+        self.encoder = nn.Sequential(
+            nn.Linear(HIDDEN_DIM_LSTM, HIDDEN_DIM_LSTM//4),
+            nn.ReLU(),
+            nn.Linear(HIDDEN_DIM_LSTM//4, HIDDEN_DIM_LSTM//8),
+            nn.ReLU(),
+        )
+
+        # Decoder modules
+        self.decoder = nn.Sequential(
+            nn.Linear(HIDDEN_DIM_LSTM//8, HIDDEN_DIM_LSTM//4),
+            nn.ReLU(),
+            nn.Linear(HIDDEN_DIM_LSTM//4, HIDDEN_DIM_LSTM),
+        )
+
+    def forward(self, x):
+        _, (hidden, _) = self.lstm_feature(x)
+        last_hidden = hidden[-1]  # (batch, hidden_dim)
+
+        # AE
+        latent_z = self.encoder(last_hidden)
+        reconstructed_hidden = self.decoder(latent_z)
+
+        return last_hidden, reconstructed_hidden
+
 class TransformerAE(nn.Module):
     def __init__(self, HIDDEN_DIM_TRANSFORMER:int, NUM_HEADS:int,DROPOUT:int,NUM_LAYERS:int,):
         super(TransformerAE, self).__init__()

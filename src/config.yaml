@@ -1,0 +1,13 @@
+CFG:
+  HIDDEN_DIM_TRANSFORMER: 128  # Transformer 모델의 숨겨진 차원
+  NUM_HEADS: 8                # Multi-head Attention에서의 헤드 수
+  NUM_LAYERS: 4               # Transformer Encoder 및 Decoder의 레이어 수
+  DROPOUT: 0.1                # Dropout 비율
+  LEARNING_RATE: 0.001        # 학습률
+  BATCH_SIZE: 64              # 배치 크기
+  EPOCHS: 50                  # 총 학습 에포크 수
+  SEQ_LEN: 60                 # 입력 시계열 데이터의 길이 (분 단위)
+  DEVICE: "cuda"              # 학습 장치 설정 (cuda 또는 cpu)
+  WEIGHT_DECAY: 1e-5          # 가중치 감쇠 (L2 Regularization)
+  SCHEDULER_STEP: 10          # 학습률 감소 스텝 크기
+  SCHEDULER_GAMMA: 0.9        # 학습률 감소 계수

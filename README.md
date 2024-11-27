@@ -1,1 +1,1 @@
-# KwaterCompetition
+# Competition

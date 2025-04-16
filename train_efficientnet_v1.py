@@ -11,6 +11,9 @@ from torchmetrics.classification import MulticlassAccuracy
 import glob
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torchvision.transforms.autoaugment import AutoAugmentPolicy
+import numpy as np
+from torch.utils.data import WeightedRandomSampler
+from torchvision.datasets import ImageFolder
 
 # 하이퍼파라미터
 NUM_CLASSES = 7
@@ -19,16 +22,12 @@ EPOCHS = 30
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 RESUME = True  # 이어서 학습하려면 True
 
-# 데이터 전처리 (ImageNet 기준)
+# 데이터 전처리
 transform_train = transforms.Compose([
-    transforms.Resize((224, 224)),       # 강한 크롭
+    transforms.Resize((224, 224)),
     transforms.RandomHorizontalFlip(),
     transforms.RandomVerticalFlip(p=0.3),                      # 수직 반전
-    transforms.ColorJitter(0.4, 0.4, 0.4, 0.1),                 # 색상 변화
-    transforms.RandomAffine(degrees=30, translate=(0.1, 0.1), scale=(0.8, 1.2)),  # 기하변환
-    transforms.AutoAugment(policy=AutoAugmentPolicy.IMAGENET),  # IMAGENET 기준 자동 증강
     transforms.ToTensor(),
-    transforms.RandomErasing(p=0.4, scale=(0.02, 0.2)),        # 일부 영역 제거
     transforms.Normalize(mean=[0.485, 0.456, 0.406],
                          std=[0.229, 0.224, 0.225])
 ])
@@ -38,6 +37,7 @@ transform_val = transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406],
                          std=[0.229, 0.224, 0.225])
 ])
+
 
 # 평가 지표
 metrics = MetricCollection({
@@ -50,7 +50,7 @@ val_dataset = datasets.ImageFolder(root='./data/val', transform=transform_val)
 train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
 val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
-# ✅ EfficientNet 모델 정의
+# EfficientNet 모델 정의
 model = timm.create_model('tf_efficientnet_b4_ns', pretrained=True, num_classes=NUM_CLASSES)
 model.to(DEVICE)
 
@@ -59,10 +59,6 @@ criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
 optimizer = optim.AdamW(model.parameters(), lr=1e-4)
 scheduler = CosineAnnealingLR(optimizer, T_max=EPOCHS)
 
-# 웨이트 초기화
-default_weights = torch.ones(NUM_CLASSES, dtype=torch.float)
-confused_boost = 2.0
-topk_confused = 5
 
 # 체크포인트 불러오기
 start_epoch = 0
@@ -124,3 +120,4 @@ for epoch in range(start_epoch, EPOCHS):
         'val_accuracy': result['acc'].item()
     }, save_path)
     print(f"✅ Model saved to {save_path}")
+

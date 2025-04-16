@@ -9,7 +9,7 @@ from tqdm import tqdm
 from torchmetrics import MetricCollection
 from torchmetrics.classification import MulticlassAccuracy
 import glob
-from torchvision.transforms.autoaugment import AutoAugmentPolicy
+from torch.optim.lr_scheduler import CosineAnnealingLR
 
 # 하이퍼파라미터
 NUM_CLASSES = 7
@@ -20,9 +20,9 @@ RESUME = True  # ← 체크포인트에서 이어서 학습
 
 # 데이터 전처리
 transform_train = transforms.Compose([
+    transforms.Resize((224, 224)),
     transforms.RandomHorizontalFlip(),
     transforms.RandomVerticalFlip(p=0.3),                      # 수직 반전
-    transforms.ColorJitter(0.4, 0.4, 0.4, 0.1),                 # 색상 변화
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406],
                          std=[0.229, 0.224, 0.225])
@@ -33,6 +33,7 @@ transform_val = transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406],
                          std=[0.229, 0.224, 0.225])
 ])
+
 
 # 평가 지표
 metrics = MetricCollection({
@@ -52,22 +53,13 @@ model.to(DEVICE)
 # 손실함수, 옵티마이저
 criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
 optimizer = optim.AdamW(model.parameters(), lr=5e-5)
+scheduler = CosineAnnealingLR(optimizer, T_max=EPOCHS)
+
+best_val_acc = 0.0  # 🔧 초기화
 
 # 체크포인트 불러오기
 start_epoch = 0
-if RESUME:
-    checkpoint_files = sorted(glob.glob('./checkpoints/convnext_epoch_*.pt'))
-    if checkpoint_files:
-        latest_ckpt = checkpoint_files[-1]
-        checkpoint = torch.load(latest_ckpt, map_location=DEVICE)
-        model.load_state_dict(checkpoint['model_state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        start_epoch = checkpoint['epoch']
-        print(f"✅ Resumed from checkpoint: {latest_ckpt} (Epoch {start_epoch})")
-    else:
-        print("⚠️ No checkpoint found. Starting from scratch.")
-
-# 학습 루프
+# ---------------------학습 루프---------------------
 for epoch in range(start_epoch, EPOCHS):
     model.train()
     total_loss, correct = 0, 0
@@ -88,7 +80,10 @@ for epoch in range(start_epoch, EPOCHS):
     train_acc = correct / len(train_loader.dataset)
     print(f"[Train] Epoch {epoch+1}, Loss: {avg_loss:.4f}, Acc: {train_acc:.4f}")
 
-    # 검증
+    # scheduler step
+    scheduler.step()
+
+    # ---------------------Validation---------------------
     model.eval()
     metrics.reset()
     with torch.no_grad():
@@ -99,7 +94,8 @@ for epoch in range(start_epoch, EPOCHS):
             metrics.update(preds, labels)
 
     result = metrics.compute()
-    print(f"[Val Accuracy] Macro: {result['acc']:.4f}")
+    val_acc = result['acc'].item()
+    print(f"[Val Accuracy] Macro: {val_acc:.4f}")
 
     # 모델 저장
     save_path = f"./checkpoints/convnext_epoch_{epoch+1}.pt"
@@ -111,3 +107,15 @@ for epoch in range(start_epoch, EPOCHS):
         'val_accuracy': result['acc'].item()
     }, save_path)
     print(f"✅ Model saved to {save_path}")
+
+    # ---------------------best 모델 저장---------------------
+    if val_acc > best_val_acc:
+        best_val_acc = val_acc
+        best_path = f"./checkpoints/best_convnext_model.pt"
+        torch.save({
+            'epoch': epoch + 1,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'val_accuracy': val_acc
+        }, best_path)
+        print(f"🏆 Best model updated and saved to {best_path} (Val Acc: {val_acc:.4f})")

@@ -14,7 +14,7 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 # 하이퍼파라미터
 NUM_CLASSES = 7
 BATCH_SIZE = 32
-EPOCHS = 20
+EPOCHS = 30
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 RESUME = True  # ← 체크포인트에서 이어서 학습
 
@@ -52,13 +52,24 @@ model.to(DEVICE)
 
 # 손실함수, 옵티마이저
 criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
-optimizer = optim.AdamW(model.parameters(), lr=5e-5)
+optimizer = optim.AdamW(model.parameters(), lr=1e-5)
 scheduler = CosineAnnealingLR(optimizer, T_max=EPOCHS)
 
 best_val_acc = 0.0  # 🔧 초기화
 
 # 체크포인트 불러오기
 start_epoch = 0
+if RESUME:
+    checkpoint_files = sorted(glob.glob('./convnext_epoch_10.pt'))
+    if checkpoint_files:
+        latest_ckpt = checkpoint_files[-1]
+        checkpoint = torch.load(latest_ckpt, map_location=DEVICE)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        start_epoch = checkpoint['epoch']
+        print(f"✅ Resumed from checkpoint: {latest_ckpt} (Epoch {start_epoch})")
+    else:
+        print("⚠️ No checkpoint found. Starting from scratch.")
 # ---------------------학습 루프---------------------
 for epoch in range(start_epoch, EPOCHS):
     model.train()

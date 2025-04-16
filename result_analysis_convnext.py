@@ -9,14 +9,14 @@ import os
 from tqdm import tqdm
 
 # ✅ 경로 및 클래스 정보
-CHECKPOINT_PATH = 'efficientnet_epoch_10.pt'
+CHECKPOINT_PATH = 'convnext_epoch_10.pt'
 NUM_CLASSES = 7
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 class_names = ['Andesite', 'Basalt', 'Etc', 'Gneiss', 'Granite', 'Mud_Sandstone', 'Weathered_Rock']
 
 # ✅ 모델 정의
 import timm
-model = timm.create_model('tf_efficientnet_b4_ns', pretrained=False, num_classes=NUM_CLASSES)
+model = timm.create_model('convnext_large', pretrained=False, num_classes=NUM_CLASSES)
 model.load_state_dict(torch.load(CHECKPOINT_PATH, map_location=DEVICE)['model_state_dict'])
 model.to(DEVICE)
 model.eval()
@@ -104,6 +104,6 @@ pdf.cell(200, 10, txt="Prediction Confidence Histogram", ln=True)
 pdf.image(hist_path, w=180)
 
 # 저장
-output_path = "efficientnet_inference_report.pdf"
+output_path = "convnext_inference_report.pdf"
 pdf.output(output_path)
 print(f"✅ PDF 리포트 저장 완료: {output_path}")

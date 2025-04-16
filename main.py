@@ -9,19 +9,20 @@ from tqdm import tqdm
 from torchmetrics import MetricCollection
 from torchmetrics.classification import MulticlassAccuracy
 import glob
+from torchvision.transforms.autoaugment import AutoAugmentPolicy
 
 # 하이퍼파라미터
 NUM_CLASSES = 7
 BATCH_SIZE = 32
-EPOCHS = 10
+EPOCHS = 20
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 RESUME = True  # ← 체크포인트에서 이어서 학습
 
 # 데이터 전처리
 transform_train = transforms.Compose([
-    transforms.Resize((224, 224)),
     transforms.RandomHorizontalFlip(),
-    transforms.ColorJitter(brightness=0.2, contrast=0.2),
+    transforms.RandomVerticalFlip(p=0.3),                      # 수직 반전
+    transforms.ColorJitter(0.4, 0.4, 0.4, 0.1),                 # 색상 변화
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406],
                          std=[0.229, 0.224, 0.225])

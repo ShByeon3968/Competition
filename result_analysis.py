@@ -14,6 +14,7 @@ from pytorch_grad_cam.utils.image import show_cam_on_image
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 from pytorch_grad_cam.utils.image import deprocess_image
 from pytorch_grad_cam.activations_and_gradients import ActivationsAndGradients
+from tqdm import tqdm
 
 # 설정
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -40,17 +41,18 @@ checkpoint = torch.load(CHECKPOINT_PATH, map_location=DEVICE)
 model.load_state_dict(checkpoint['model_state_dict'])
 model.eval().to(DEVICE)
 
-# ✅ Grad-CAM 타겟 레이어 지정
-target_layers = [model.stages[-1].blocks[-1].norm1]  # ConvNeXt에서 마지막 Block 사용
+
+# Grad-CAM 타겟 레이어 지정
+target_layers = [model.stages[-1].blocks[-1].conv_dw]  # ConvNeXt에서 마지막 Block 사용
 
 cam = GradCAM(model=model, target_layers=target_layers, use_cuda=torch.cuda.is_available())
 
-# ✅ 결과 수집
+# 결과 수집
 y_true, y_pred = [], []
 misclassified = []
 
 with torch.no_grad():
-    for imgs, labels in val_loader:
+    for imgs, labels in tqdm(val_loader):
         imgs, labels = imgs.to(DEVICE), labels.to(DEVICE)
         outputs = model(imgs)
         preds = outputs.argmax(dim=1)
@@ -66,7 +68,7 @@ with torch.no_grad():
                     'pred_label': preds[i].item()
                 })
 
-# ✅ 1. Confusion Matrix
+# 1. Confusion Matrix
 def plot_confusion_matrix(y_true, y_pred, class_names):
     cm = confusion_matrix(y_true, y_pred)
     plt.figure(figsize=(10, 8))
@@ -78,7 +80,7 @@ def plot_confusion_matrix(y_true, y_pred, class_names):
     plt.title("Confusion Matrix")
     plt.show()
 
-# ✅ 2. 오예측 이미지 + Grad-CAM 시각화
+# 2. 오예측 이미지 + Grad-CAM 시각화
 def show_misclassified_with_gradcam(misclassified, class_names, max_images=5):
     plt.figure(figsize=(15, 5))
     count = 0
@@ -108,6 +110,6 @@ def show_misclassified_with_gradcam(misclassified, class_names, max_images=5):
     plt.tight_layout()
     plt.show()
 
-# ✅ 실행
+# 실행
 plot_confusion_matrix(y_true, y_pred, class_names)
 show_misclassified_with_gradcam(misclassified, class_names, max_images=5)

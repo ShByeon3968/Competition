@@ -10,19 +10,25 @@ from torchmetrics import MetricCollection
 from torchmetrics.classification import MulticlassAccuracy
 import glob
 from torch.optim.lr_scheduler import CosineAnnealingLR
+from utils import get_topk_confusing_pairs
 
 # 하이퍼파라미터
 NUM_CLASSES = 7
 BATCH_SIZE = 32
-EPOCHS = 10
+EPOCHS = 30
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-RESUME = False  # 이어서 학습하려면 True
+RESUME = True  # 이어서 학습하려면 True
+
+# 클래스 목록 (train_dataset.classes 순서)
+class_names = ['Andesite', 'Basalt', 'Etc', 'Gneiss', 'Granite', 'Mud_Sandstone', 'Weathered_Rock']
+NUM_CLASSES = len(class_names)
 
 # 데이터 전처리 (ImageNet 기준)
 transform_train = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.RandomHorizontalFlip(),
-    transforms.ColorJitter(brightness=0.2, contrast=0.2),
+    transforms.RandomVerticalFlip(p=0.3),                      # 수직 반전
+    transforms.ColorJitter(0.4, 0.4, 0.4, 0.1),                 # 색상 변화
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406],
                          std=[0.229, 0.224, 0.225])
@@ -49,10 +55,16 @@ val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)
 model = timm.create_model('tf_efficientnet_b4_ns', pretrained=True, num_classes=NUM_CLASSES)
 model.to(DEVICE)
 
-# 손실함수, 옵티마이저, 스케쥴러러
+# 손실함수, 옵티마이저, 스케쥴러
 criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
-optimizer = optim.AdamW(model.parameters(), lr=5e-5)
+optimizer = optim.AdamW(model.parameters(), lr=1e-4)
 scheduler = CosineAnnealingLR(optimizer, T_max=EPOCHS)
+
+# 웨이트 초기화
+default_weights = torch.ones(NUM_CLASSES, dtype=torch.float)
+confused_boost = 2.0
+topk_confused = 5
+top_confused = []
 
 # 체크포인트 불러오기
 start_epoch = 0
@@ -64,12 +76,24 @@ if RESUME:
         model.load_state_dict(checkpoint['model_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         start_epoch = checkpoint['epoch']
-        print(f"✅ Resumed from checkpoint: {latest_ckpt} (Epoch {start_epoch})")
+        print(f"Resumed from checkpoint: {latest_ckpt} (Epoch {start_epoch})")
     else:
         print("⚠️ No checkpoint found. Starting from scratch.")
 
-# 학습 루프
+# ---------------------학습 루프---------------------
 for epoch in range(start_epoch, EPOCHS):
+    if epoch > 0:
+        weight_vector = default_weights.clone()
+        for (c1, c2), _ in top_confused:
+            idx1, idx2 = class_names.index(c1), class_names.index(c2)
+            weight_vector[idx1] *= confused_boost
+            weight_vector[idx2] *= confused_boost
+        criterion = nn.CrossEntropyLoss(weight=weight_vector.to(DEVICE), label_smoothing=0.1)
+        print(f"📊 Updated class weights based on confusion: {weight_vector}")
+    else:
+        # 첫 epoch은 default weight 사용
+        criterion = nn.CrossEntropyLoss(weight=default_weights.to(DEVICE), label_smoothing=0.1)
+
     model.train()
     total_loss, correct = 0, 0
 
@@ -93,6 +117,7 @@ for epoch in range(start_epoch, EPOCHS):
     scheduler.step()
     # 검증
     model.eval()
+    y_true, y_pred = [], []
     metrics.reset()
     with torch.no_grad():
         for imgs, labels in tqdm(val_loader, desc=f"Epoch {epoch+1} [Val]"):
@@ -100,9 +125,17 @@ for epoch in range(start_epoch, EPOCHS):
             outputs = model(imgs)
             preds = outputs.argmax(1)
             metrics.update(preds, labels)
+            y_true.extend(labels.cpu().numpy())
+            y_pred.extend(preds.cpu().numpy())
 
     result = metrics.compute()
     print(f"[Val Accuracy] Macro: {result['acc']:.4f}")
+
+    # 혼동 클래스 페어 탐지
+    top_confused = get_topk_confusing_pairs(y_true, y_pred, class_names, topk=topk_confused)
+    print(f"⚠️ Top-{topk_confused} Confusing Class Pairs (Epoch {epoch+1}):")
+    for (c1, c2), freq in top_confused:
+        print(f"   - {c1} ↔ {c2}: {freq}번 혼동")
 
     # 모델 저장
     save_path = f"./checkpoints/efficientnet_epoch_{epoch+1}.pt"

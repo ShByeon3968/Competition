@@ -9,6 +9,8 @@ from model import ContrastiveClassifier
 from sklearn.metrics import f1_score, classification_report
 from torchvision.datasets import ImageFolder
 from glob import glob
+import numpy as np
+from torch.utils.data import WeightedRandomSampler
 
 # =====================
 # 학습 파라미터 설정
@@ -34,23 +36,25 @@ val_transform = transforms.Compose([
 ])
 
 # =====================
-# 데이터셋 로딩
+# 데이터셋 로딩 (ETC 강조 포함)
 # =====================
-train_transform = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.RandomHorizontalFlip(),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-])
-val_transform = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-])
-
 train_dataset = ImageFolder('./data/train', transform=train_transform)
 val_dataset = ImageFolder('./data/val', transform=val_transform)
-train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
+
+# 🎯 ETC 클래스 강조용 Sampler 생성
+class_names = train_dataset.classes  # ['Andesite', ..., 'Etc']
+etc_index = class_names.index('Etc')
+
+labels = [label for _, label in train_dataset.samples]
+class_counts = np.bincount(labels)
+class_weights = 1. / class_counts
+class_weights[etc_index] *= 3.0  # ETC 클래스 강조 (필요 시 조절)
+
+sample_weights = [class_weights[label] for label in labels]
+sampler = WeightedRandomSampler(sample_weights, num_samples=len(sample_weights), replacement=True)
+
+# ✅ ETC 강조된 train_loader 사용
+train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, sampler=sampler)
 val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
 # =====================

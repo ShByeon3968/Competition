@@ -22,8 +22,8 @@ def load_model(model_name, checkpoint_path):
     model.eval()
     return model
 
-convnext_model = load_model("convnext_large", "./checkpoints/convnext_epoch_8.pt")
-efficientnet_model = load_model("tf_efficientnet_b4_ns", "./checkpoints/efficientnet_epoch_10.pt")
+convnext_model = load_model("convnext_large", "./checkpoints/convnext_epoch_10.pt")
+efficientnet_model = load_model("tf_efficientnet_b4_ns", "./checkpoints/efficientnet_epoch_9.pt")
 
 # 모델 가중치 (soft voting 비율)
 WEIGHT_CONVNEXT = 0.6
@@ -79,7 +79,7 @@ with torch.no_grad():
             print(f"{fname.split('.')[0]} → {pred_name}")
 
 # CSV로 저장
-output_path = './ensemble_multiscale_tta_predictions.csv'
+output_path = './ensemble_multiscale_tta_predictions_v2.csv'
 with open(output_path, 'w', newline='') as f:
     writer = csv.DictWriter(f, fieldnames=['ID', 'rock_type'])
     writer.writeheader()

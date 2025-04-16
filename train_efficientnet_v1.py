@@ -74,6 +74,8 @@ if RESUME:
     else:
         print("⚠️ No checkpoint found. Starting from scratch.")
 
+best_val_acc = 0.0  # 🔧 초기화
+
 # ---------------------학습 루프---------------------
 for epoch in range(start_epoch, EPOCHS):
     model.train()
@@ -95,9 +97,10 @@ for epoch in range(start_epoch, EPOCHS):
     train_acc = correct / len(train_loader.dataset)
     print(f"[Train] Epoch {epoch+1}, Loss: {avg_loss:.4f}, Acc: {train_acc:.4f}")
 
-    # ✅ scheduler step 호출
+    # scheduler step
     scheduler.step()
-    # 검증
+
+    # ---------------------Validation---------------------
     model.eval()
     metrics.reset()
     with torch.no_grad():
@@ -108,16 +111,28 @@ for epoch in range(start_epoch, EPOCHS):
             metrics.update(preds, labels)
 
     result = metrics.compute()
-    print(f"[Val Accuracy] Macro: {result['acc']:.4f}")
+    val_acc = result['acc'].item()
+    print(f"[Val Accuracy] Macro: {val_acc:.4f}")
 
-    # 모델 저장
+    # ---------------------모델 저장---------------------
     save_path = f"./checkpoints/efficientnet_epoch_{epoch+1}.pt"
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     torch.save({
         'epoch': epoch + 1,
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
-        'val_accuracy': result['acc'].item()
+        'val_accuracy': val_acc
     }, save_path)
     print(f"✅ Model saved to {save_path}")
 
+    # ---------------------best 모델 저장---------------------
+    if val_acc > best_val_acc:
+        best_val_acc = val_acc
+        best_path = f"./checkpoints/best_model.pt"
+        torch.save({
+            'epoch': epoch + 1,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'val_accuracy': val_acc
+        }, best_path)
+        print(f"🏆 Best model updated and saved to {best_path} (Val Acc: {val_acc:.4f})")

@@ -24,12 +24,12 @@ def load_model(model_name, checkpoint_path):
     return model
 
 # ConvNeXt, EfficientNet 불러오기
-convnext_model = load_model("convnext_large", "./checkpoints/convnext_epoch_10.pt")
-efficientnet_model = load_model("tf_efficientnet_b4_ns", "./checkpoints/efficientnet_epoch_10.pt")
+convnext_model = load_model("convnext_large", "./checkpoints/convnext_epoch_8.pt")
+efficientnet_model = load_model("tf_efficientnet_b4_ns", "./checkpoints/efficientnet_epoch_21.pt")
 
 # 모델 가중치 (총합이 1이 되도록 설정)
-WEIGHT_CONVNEXT = 0.7
-WEIGHT_EFFICIENTNET = 0.3
+WEIGHT_CONVNEXT = 0.4
+WEIGHT_EFFICIENTNET = 0.6
 
 # 이미지 전처리
 transform = transforms.Compose([
@@ -67,7 +67,7 @@ with torch.no_grad():
             print(f"{fname.split('.')[0]} → {pred_name}")
 
 # CSV로 저장
-output_path = './ensemble_rock_predictions.csv'
+output_path = './ensemble_rock_predictions_0417.csv'
 with open(output_path, 'w', newline='') as f:
     writer = csv.DictWriter(f, fieldnames=['ID', 'rock_type'])
     writer.writeheader()

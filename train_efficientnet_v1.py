@@ -128,7 +128,7 @@ for epoch in range(start_epoch, EPOCHS):
     # ---------------------best 모델 저장---------------------
     if val_acc > best_val_acc:
         best_val_acc = val_acc
-        best_path = f"./checkpoints/best_model.pt"
+        best_path = f"./checkpoints/best_efficient_model.pt"
         torch.save({
             'epoch': epoch + 1,
             'model_state_dict': model.state_dict(),

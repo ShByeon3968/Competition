@@ -47,7 +47,7 @@ train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
 val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
 # 모델 정의
-model = timm.create_model('convnextv2_base.fcmae_ft_in1k', pretrained=True, num_classes=NUM_CLASSES)
+model = timm.create_model('convnextv2_large.fcmae_ft_in1k', pretrained=True, num_classes=NUM_CLASSES)
 model.to(DEVICE)
 
 # 손실함수, 옵티마이저
@@ -109,7 +109,7 @@ for epoch in range(start_epoch, EPOCHS):
     print(f"[Val Accuracy] Macro: {val_acc:.4f}")
 
     # 모델 저장
-    save_path = f"./checkpoints/convnext_epoch_{epoch+1}.pt"
+    save_path = f"./checkpoints/convnextv2_epoch_{epoch+1}.pt"
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     torch.save({
         'epoch': epoch + 1,

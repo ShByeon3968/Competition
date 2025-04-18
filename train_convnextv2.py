@@ -16,13 +16,15 @@ NUM_CLASSES = 7
 BATCH_SIZE = 32
 EPOCHS = 30
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-RESUME = False  # ← 체크포인트에서 이어서 학습
+RESUME = True  # ← 체크포인트에서 이어서 학습
 
 # 데이터 전처리
 transform_train = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.RandomHorizontalFlip(),
-    transforms.RandomVerticalFlip(p=0.3),                      # 수직 반전
+    transforms.RandomVerticalFlip(p=0.3),      
+    transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),  # 색상 변화                   
+    transforms.RandomRotation(30),  # 회전
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406],
                          std=[0.229, 0.224, 0.225])
@@ -47,20 +49,19 @@ train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
 val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
 # 모델 정의
-model = timm.create_model('convnextv2_large.fcmae_ft_in1k', pretrained=True, num_classes=NUM_CLASSES)
+model = timm.create_model('convnextv2_base.fcmae_ft_in1k', pretrained=True, num_classes=NUM_CLASSES)
 model.to(DEVICE)
 
 # 손실함수, 옵티마이저
 criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
 optimizer = optim.AdamW(model.parameters(), lr=1e-5)
-scheduler = CosineAnnealingLR(optimizer, T_max=EPOCHS)
 
 best_val_acc = 0.0  # 🔧 초기화
 
 # 체크포인트 불러오기
 start_epoch = 0
 if RESUME:
-    checkpoint_files = sorted(glob.glob('./checkpoints/convnext_epoch_10.pt'))
+    checkpoint_files = sorted(glob.glob('./checkpoints/best_convnextv2_model.pt'))
     if checkpoint_files:
         latest_ckpt = checkpoint_files[-1]
         checkpoint = torch.load(latest_ckpt, map_location=DEVICE)
@@ -90,9 +91,6 @@ for epoch in range(start_epoch, EPOCHS):
     avg_loss = total_loss / len(train_loader)
     train_acc = correct / len(train_loader.dataset)
     print(f"[Train] Epoch {epoch+1}, Loss: {avg_loss:.4f}, Acc: {train_acc:.4f}")
-
-    # scheduler step
-    scheduler.step()
 
     # ---------------------Validation---------------------
     model.eval()

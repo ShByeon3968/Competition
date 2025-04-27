@@ -7,6 +7,7 @@ import os
 import pandas as pd
 from tqdm import tqdm
 import csv
+from utils import load_model
 
 # 환경 설정
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -15,25 +16,17 @@ NUM_CLASSES = 7
 # 클래스 이름 리스트 (옵션: train_dataset.classes)
 class_names = ['Andesite', 'Basalt', 'Etc', 'Gneiss', 'Granite', 'Mud_Sandstone', 'Weathered_Rock']
 
-# 모델 로딩 함수
-def load_model(model_name, checkpoint_path):
-    model = timm.create_model(model_name, pretrained=False, num_classes=NUM_CLASSES)
-    model.load_state_dict(torch.load(checkpoint_path, map_location=DEVICE)['model_state_dict'])
-    model.to(DEVICE)
-    model.eval()
-    return model
-
 # ConvNeXt, EfficientNet 불러오기
-convnext_model = load_model("convnext_large", "./checkpoints/convnext_epoch_8.pt")
-efficientnet_model = load_model("tf_efficientnet_b4_ns", "./checkpoints/efficientnet_epoch_21.pt")
+convnext_model = load_model("convnextv2_base.fcmae_ft_in22k_in1k_384", "checkpoints/0423/best_conv2_model_9294.pt")
+efficientnet_model = load_model("convnext_base.fb_in22k_ft_in1k_384", "checkpoints/0425/best_conv_b_model_0.8918242454528809.pt")
 
 # 모델 가중치 (총합이 1이 되도록 설정)
-WEIGHT_CONVNEXT = 0.4
-WEIGHT_EFFICIENTNET = 0.6
+WEIGHT_CONVNEXT = 0.45
+WEIGHT_EFFICIENTNET = 0.55
 
 # 이미지 전처리
 transform = transforms.Compose([
-    transforms.Resize((224, 224)),
+    transforms.Resize((384, 384)),
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406],
                          std=[0.229, 0.224, 0.225])
@@ -67,7 +60,7 @@ with torch.no_grad():
             print(f"{fname.split('.')[0]} → {pred_name}")
 
 # CSV로 저장
-output_path = './ensemble_rock_predictions_0417.csv'
+output_path = './ensemble_rock_predictions_0425_v4.csv'
 with open(output_path, 'w', newline='') as f:
     writer = csv.DictWriter(f, fieldnames=['ID', 'rock_type'])
     writer.writeheader()

@@ -24,9 +24,9 @@ def load_model(model_name, checkpoint_path, num_classes):
 
 # 모델 목록: (모델명, 체크포인트경로, soft voting 가중치)
 ensemble_model_configs = [
-    ('convnextv2_base.fcmae_ft_in22k_in1k_384', "checkpoints/0429/best_conv2_trans_model_0.8969.pt", 0.5),
-    ('maxvit_small_tf_384.in1k', 'checkpoints/0507/best_mvit_cut_model_0.8733.pt', 0.3),
-    ('tf_efficientnet_b4_ns', 'checkpoints/0429/best_effi_cut_model_0.8920.pt', 0.2)
+    ('convnextv2_base.fcmae_ft_in22k_in1k_384', "checkpoints/0512/best_conv2_cut_model_0.8845.pt", 0.4),
+    ('maxvit_small_tf_384.in1k', 'checkpoints/0507/best_mvit_cut_model_0.8997.pt', 0.3),
+    ('tf_efficientnet_b4_ns', 'checkpoints/0507/best_effi_cut_model_0.9094.pt', 0.3)
 ]
 
 # 모델 로드 및 가중치 정규화

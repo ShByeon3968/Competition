@@ -1,3 +1,4 @@
+from pickle import TRUE
 # train with cutmix
 import torch
 import torch.nn as nn
@@ -14,7 +15,6 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import matplotlib.pyplot as plt
 from timm.loss import SoftTargetCrossEntropy
 from timm.data import Mixup
-
 
 # 하이퍼파라미터
 class_names = ['Andesite', 'Basalt', 'Etc', 'Gneiss', 'Granite', 'Mud_Sandstone', 'Weathered_Rock']
@@ -42,13 +42,13 @@ transform_val = transforms.Compose([
 ])
 
 mixup_fn = Mixup(
-    mixup_alpha=0.2,
-    cutmix_alpha=1.0,
-    prob=1.0,             # 항상 적용
-    switch_prob=0.5,      # Mixup과 CutMix를 절반 확률로 선택
+    mixup_alpha=0.0,      # mixup 사용 안함
+    cutmix_alpha=1.0,     # cutmix만 사용 (1.0 권장, 실험적으로 0.5~1.0 사이 사용)
+    prob=0.7,             # 항상 적용
+    switch_prob=0.0,      # switch prob 0 (CutMix only)
     mode='batch',
-    label_smoothing=0.05,
-    num_classes=NUM_CLASSES
+    label_smoothing=0.1,
+    num_classes=7
 )
 
 # 평가 지표
@@ -63,9 +63,16 @@ train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True,dro
 val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
 # ✅ CoAtNet-2 모델 정의
-model = timm.create_model('convnextv2_base.fcmae_ft_in22k_in1k_384', pretrained=True, num_classes=NUM_CLASSES)
+model = timm.create_model('maxvit_small_tf_384.in1k', pretrained=True, num_classes=NUM_CLASSES)
 # convnextv2_base.fcmae_ft_in22k_in1k_384
 model.to(DEVICE)
+
+# 클래스별 가중치 설정 (Etc 강조)
+class_counts = torch.tensor([1, 1, 1, 1, 1, 1, 1], dtype=torch.float32)  # 기본 weight 1
+class_counts[2] = 3.0  # Etc 클래스(인덱스 2)를 5배 강조
+class_weights = class_counts / class_counts.sum()  # 정규화 (optional, 안해도 됨)
+
+class_weights = class_weights.to(DEVICE)
 
 # 손실함수, 옵티마이저
 criterion = SoftTargetCrossEntropy()
@@ -74,7 +81,7 @@ optimizer = optim.AdamW(model.parameters(), lr=1e-4, weight_decay=0.01)
 # 체크포인트 불러오기
 start_epoch = 0
 if RESUME:
-    checkpoint_files = sorted(glob.glob('checkpoints/best_conv2_cut_train_2_model_0.8140.pt'))
+    checkpoint_files = sorted(glob.glob('checkpoints/0507/best_mvit_cut_model_0.8997.pt'))
     if checkpoint_files:
         latest_ckpt = checkpoint_files[-1]
         checkpoint = torch.load(latest_ckpt, map_location=DEVICE)
@@ -128,17 +135,10 @@ for epoch in range(start_epoch, EPOCHS):
     metrics.reset()
     y_true, y_pred = [], []
 
-
     with torch.no_grad():
-        for imgs, labels in tqdm(val_loader, desc=f"Epoch {epoch+1} [Val-TTA]"):
+        for imgs, labels in tqdm(val_loader, desc=f"Epoch {epoch+1} [Val]"):
             imgs, labels = imgs.to(DEVICE), labels.to(DEVICE)
-            
-            # TTA Inference
-            tta_outputs = []
-            tta_outputs.append(model(imgs))                           # original
-            tta_outputs.append(model(torch.flip(imgs, dims=[3])))     # h-flip
-            
-            outputs = torch.stack(tta_outputs, dim=0).mean(dim=0)     # (2, B, C) → (B, C)
+            outputs = model(imgs)
             preds = outputs.argmax(1)
 
             metrics.update(preds, labels)
@@ -155,7 +155,7 @@ for epoch in range(start_epoch, EPOCHS):
     disp.plot(cmap='Blues', xticks_rotation=45)
     plt.title(f"Confusion Matrix - Epoch {epoch+1}")
     os.makedirs("./confusion_matrices", exist_ok=True)
-    cm_path = f"./confusion_matrices/confusion_matrix_epoch_conv2_train_2_cut_{epoch+1}.png"
+    cm_path = f"./confusion_matrices/confusion_matrix_epoch_mvit_cut_train2_{epoch+1}.png"
     plt.tight_layout()
     plt.savefig(cm_path)
     plt.close()
@@ -164,7 +164,7 @@ for epoch in range(start_epoch, EPOCHS):
     # ✅ best 모델 저장
     if val_acc > best_val_acc:
         best_val_acc = val_acc
-        best_path = f"./checkpoints/best_conv2_cut_train_2_model_{val_acc:.4f}.pt"
+        best_path = f"./checkpoints/best_mvit_cut_model_train_2_{val_acc:.4f}.pt"
         os.makedirs(os.path.dirname(best_path), exist_ok=True)
         torch.save({
             'epoch': epoch + 1,

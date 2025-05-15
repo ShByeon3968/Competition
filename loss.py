@@ -1,5 +1,6 @@
 import torch.nn as nn
 import torch
+import torch.nn.functional as F
 class SupConLoss(nn.Module):
     def __init__(self,temperature=0.07):
         super(SupConLoss,self).__init__()
@@ -20,4 +21,29 @@ class SupConLoss(nn.Module):
 
         mean_log_prob_pos = (mask * log_prob).sum(1) / mask.sum(1)
         loss = -mean_log_prob_pos.mean()
+        return loss
+    
+
+class FocalLoss(nn.Module):
+    def __init__(self, gamma=2.0, weight=None, reduction='mean'):
+        super().__init__()
+        self.gamma = gamma
+        self.weight = weight  # class-wise weights (like in CrossEntropy)
+        self.reduction = reduction
+
+    def forward(self, input, target):
+        logpt = F.log_softmax(input, dim=1)
+        pt = torch.exp(logpt)
+        logpt = logpt.gather(1, target.unsqueeze(1)).squeeze(1)
+        pt = pt.gather(1, target.unsqueeze(1)).squeeze(1)
+
+        loss = -1 * (1 - pt) ** self.gamma * logpt
+        if self.weight is not None:
+            at = self.weight.gather(0, target)
+            loss = loss * at
+
+        if self.reduction == 'mean':
+            return loss.mean()
+        elif self.reduction == 'sum':
+            return loss.sum()
         return loss

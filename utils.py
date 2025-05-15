@@ -4,6 +4,7 @@ import itertools
 import numpy as np
 import torch
 import timm
+import yaml
 
 def rand_bbox(size, lam):
     W, H = size[2], size[3]
@@ -38,3 +39,8 @@ def load_model(model_name, checkpoint_path, num_classes=7):
     model.to('cuda')
     model.eval()
     return model
+
+# config 파일 로드
+def load_config(path="config.yaml"):
+    with open(path, 'r') as f:
+        return yaml.safe_load(f)

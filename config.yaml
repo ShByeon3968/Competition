@@ -1,0 +1,19 @@
+# 하이퍼파라미터
+class_names: ['Andesite', 'Basalt', 'Etc', 'Gneiss', 'Granite', 'Mud_Sandstone', 'Weathered_Rock']
+NUM_CLASSES : 7
+BATCH_SIZE : 8
+EPOCHS : 30
+RESUME : False 
+LEARNING_RATE : 0.0001
+train_path: '../data/train'
+valid_path: '../data/val'
+class_samples : [31904, 21448, 12748, 59132, 74339, 71574, 29736]
+
+# 모델 설정
+convnextv2_large: 'convnextv2_large.fcmae_ft_in22k_in1k_384'
+convnextv2_base: 'convnextv2_base.fcmae_ft_in22k_in1k_384'
+maxvit_small : 'maxvit_small_tf_384.in1k'
+tf_efficientnet_b7 : 'tf_efficientnet_b7.ns_jft_in1k'
+
+# 저장 경로
+save_path: f"./checkpoints/best_conv2_clean_model_{val_acc:.4f}.pt"

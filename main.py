@@ -46,28 +46,28 @@ val_dataset = AlbumentationsDataset(config['valid_path'], albumentations_val)
 train_loader = DataLoader(train_dataset, batch_size=config['BATCH_SIZE'], shuffle=True, drop_last=True)
 val_loader = DataLoader(val_dataset, batch_size=config['BATCH_SIZE'], shuffle=False)
 
-# ✅ 클래스 가중치 (Etc 강조)
-# 예: 클래스별 샘플 수 → [31904, 21448, 12748, 59132, 74339, 71574, 29736]
+# 클래스 가중치 (Etc 강조)
+# 클래스별 샘플 수 → [31904, 21448, 12748, 59132, 74339, 71574, 29736]
 class_counts = torch.tensor(config['class_samples'], dtype=torch.float32)
 class_weights = 1.0 / class_counts
 class_weights[2] *= 3.0  # Etc 클래스 가중치 강화
 class_weights = class_weights / class_weights.sum()
 class_weights = class_weights.to(DEVICE)
 
-# ✅ 평가 지표
+# 평가 지표
 metrics = MetricCollection({
     'acc': MulticlassAccuracy(num_classes=config['NUM_CLASSES'], average='macro')
 }).to(DEVICE)
 
-# ✅ 모델 정의
-model = timm.create_model('convnextv2_base.fcmae_ft_in22k_in1k_384', pretrained=True, num_classes=config['NUM_CLASSES'])
+# 모델 정의
+model = timm.create_model(config['tf_efficientnet_b7'], pretrained=True, num_classes=config['NUM_CLASSES'])
 model.to(DEVICE)
 
-# ✅ 손실함수, 옵티마이저
+# 손실함수, 옵티마이저
 criterion = nn.CrossEntropyLoss(weight=class_weights)
 optimizer = optim.AdamW(model.parameters(), lr=1e-4, weight_decay=0.01)
 
-# ✅ 체크포인트 불러오기
+# 체크포인트 불러오기
 start_epoch = 0
 best_val_acc = 0.0
 if config['RESUME']:
@@ -81,7 +81,7 @@ if config['RESUME']:
     else:
         print("⚠️ No checkpoint found. Starting from scratch.")
 
-# ✅ 학습 루프
+# 학습 루프
 for epoch in range(start_epoch, config['EPOCHS']):
     model.train()
     total_loss, correct = 0, 0
@@ -104,7 +104,7 @@ for epoch in range(start_epoch, config['EPOCHS']):
     train_acc = correct / len(train_loader.dataset)
     print(f"\n[Train] Epoch {epoch+1}, Loss: {avg_loss:.6f}, Acc: {train_acc:.4f}")
 
-    # ✅ 검증
+    # 검증
     model.eval()
     metrics.reset()
     y_true, y_pred = [], []
@@ -122,7 +122,7 @@ for epoch in range(start_epoch, config['EPOCHS']):
     val_acc = result['acc'].item()
     print(f"[Val Accuracy] Macro: {val_acc:.4f}")
 
-    # ✅ Confusion Matrix 저장
+    # Confusion Matrix 저장
     cm = confusion_matrix(y_true, y_pred)
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=config['class_names'])
     disp.plot(cmap='Blues', xticks_rotation=45)
@@ -133,7 +133,7 @@ for epoch in range(start_epoch, config['EPOCHS']):
     plt.savefig(cm_path)
     plt.close()
 
-    # ✅ Best Model 저장
+    # Best Model 저장
     if val_acc > best_val_acc:
         best_val_acc = val_acc
         save_path = f"./checkpoints/best_conv2_clean_model_{val_acc:.4f}.pt"
